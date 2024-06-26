@@ -1,0 +1,169 @@
+> Dashboard sheet:
+----------------------------------
+Option Explicit
+
+Private Sub Add_Record_Click()
+    AddNewRecord.Show
+End Sub
+
+Private Sub RefreshAll_Click()
+    ActiveWorkbook.RefreshAll
+End Sub
+
+> UserForm Code:
+--------------------------------
+Option Explicit
+
+Private Const DATE_FORMAT As String = "dd-mmm-yyyy"
+
+Private Sub UserForm_Initialize()
+    
+    ' Clear all fields and set default date
+    txt_NumberOfTrainees.Value = ""
+    txt_TrainingHours.Value = ""
+    cmb_TrainingTopic.Value = ""
+    cmb_TrainerName.Value = ""
+    txt_TrainingDate.Text = Format(Now(), DATE_FORMAT)
+    lst_TraineeSelection.Clear
+    
+    ' Populate cmb_TrainingTopic and cmb_TrainerName
+    cmb_TrainingTopic.List = Range("tbl_TrainingList").Value
+    cmb_TrainerName.List = Range("tbl_Trainer").Value
+    
+    ' Populate ListBox_Participants
+    lst_TraineeSelection.List = Range("tbl_EmpDatabase").Value
+    
+    With lst_TraineeSelection
+        .ColumnCount = 3
+        .ColumnWidths = "50,80,90"
+    End With
+    
+    ' Set Focus to cmb_TrainingTopic
+    cmb_TrainingTopic.SetFocus
+End Sub
+
+Private Sub Cancel_Click()
+    Unload Me
+End Sub
+
+Private Sub Clear_Click()
+    Call UserForm_Initialize
+End Sub
+
+Private Sub OK_Click()
+    
+    ' Validates inputs and adds records if validation is successful, then exits the userform
+
+    ' Validate Inputs
+    If Not ValidateInputs() Then Exit Sub
+
+    ' Add trainer and trainee records
+    AddRecords
+    
+    ' Navigate back to the dashboard sheet
+    Dashboard.Activate
+
+    ' Exit userform
+    Unload Me
+    
+    
+End Sub
+
+Private Function ValidateInputs() As Boolean
+    ' Validates the user inputs for date, training, trainer, training hours, and trainee count
+
+    ' Validate date
+    If Not IsDate(txt_TrainingDate) Then
+        MsgBox "The entered date is not valid. Please enter a date in the format " & DATE_FORMAT & ".", vbCritical, "Critical"
+        txt_TrainingDate.SetFocus
+        Exit Function
+    End If
+    txt_TrainingDate.Value = Format(txt_TrainingDate, DATE_FORMAT)
+
+    ' Validate training topic
+    If cmb_TrainingTopic.Value = "" Then
+        MsgBox "You have not selected a training topic. Please choose a topic from the drop-down list.", vbInformation, "Information"
+        cmb_TrainingTopic.SetFocus
+        Exit Function
+    End If
+
+    ' Validate trainer
+    If cmb_TrainerName.Value = "" Then
+        MsgBox "You have not selected a trainer. Please choose a trainer from the drop-down list.", vbInformation, "Information"
+        cmb_TrainerName.SetFocus
+        Exit Function
+    End If
+
+    ' Validate training hours
+    If txt_TrainingHours.Value = "" Or Not IsNumeric(txt_TrainingHours.Value) Then
+        MsgBox "Training hours have not been entered or are in an invalid format.", vbInformation, "Information"
+        txt_TrainingHours.SetFocus
+        Exit Function
+    End If
+
+    ' Validate trainee count
+    Dim TraineeCount As Long
+    Dim i As Long
+    With lst_TraineeSelection
+        For i = 0 To .ListCount - 1
+            If .Selected(i) = True Then
+                TraineeCount = TraineeCount + 1
+            End If
+        Next i
+    End With
+
+    If txt_NumberOfTrainees.Value <> TraineeCount Then
+        MsgBox "The number of selected participants does not match the entered count.", vbInformation, "Information"
+        txt_NumberOfTrainees.SetFocus
+        Exit Function
+    End If
+
+    ValidateInputs = True
+End Function
+
+Private Sub AddRecords()
+    ' Define variables
+    Dim i As Long
+    Dim trainerRow As Long
+    Dim traineeRow As Long
+    Dim TraineeMaxIndex As Long
+    Dim TrainerMaxIndex As Long
+    
+    ' Activate the TrainerRecords sheet
+    TrainerRecords.Activate
+    trainerRow = WorksheetFunction.CountA(Range("A:A")) + 1
+    TrainerMaxIndex = WorksheetFunction.Max(Range("A:A")) + 1
+
+    ' Add the trainer record
+    Range("A" & trainerRow).Value = TrainerMaxIndex
+    Range("B" & trainerRow).Value = txt_TrainingDate.Value
+    Range("C" & trainerRow).Value = cmb_TrainingTopic.Value
+    Range("D" & trainerRow).Value = cmb_TrainerName.Value
+    Range("E" & trainerRow).Value = txt_TrainingHours.Value
+
+    ' Activate the TraineeRecords sheet
+    TraineeRecords.Activate
+    traineeRow = WorksheetFunction.CountA(Range("A:A")) + 1
+    TraineeMaxIndex = WorksheetFunction.Max(Range("A:A")) + 1
+
+    ' Add the trainee record
+    With lst_TraineeSelection
+        For i = 0 To .ListCount - 1
+            If .Selected(i) = True Then
+                Range("A" & traineeRow).Value = TraineeMaxIndex
+                Range("B" & traineeRow).Value = TrainerMaxIndex
+                Range("C" & traineeRow).Value = txt_TrainingDate.Value
+                Range("D" & traineeRow).Value = cmb_TrainingTopic.Value
+                Range("E" & traineeRow).Value = cmb_TrainerName.Value
+                Range("F" & traineeRow).Value = txt_TrainingHours.Value
+                Range("G" & traineeRow).Value = lst_TraineeSelection.List(i, 0)
+                Range("H" & traineeRow).Value = lst_TraineeSelection.List(i, 1)
+                Range("I" & traineeRow).Value = lst_TraineeSelection.List(i, 2)
+    
+                traineeRow = traineeRow + 1
+                TraineeMaxIndex = TraineeMaxIndex + 1
+            End If
+        Next i
+    End With
+End Sub
+
